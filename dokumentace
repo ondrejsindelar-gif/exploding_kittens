@@ -1,0 +1,135 @@
+Tento projekt je konzolová implementace  karetní hry Exploding Kittens v jazyce C#. Hra je určená pro 2 až 5 hráčů, obsahuje správu karet pomocí externího JSON souboru a simuluje tahový systém jednotlivých karet.
+1. Zadání projektu
+
+Cílem projektu bylo vytvořit textovou hru pro více hráčů na jednom počítači. Hra simuluje balíček speciálních karet, ze kterého si hráči postupně dobírají.
+
+    Hlavní mechanika: Vyhýbání se kartě „Koťátko“ (výbuch). Pokud hráč tuto kartu lízne a nemá u sebe kartu „Zneškodnit“, okamžitě vypadává.
+
+    Cíl hry: Zůstat jako poslední přeživší hráč.
+
+    Bonusová funkcionalita: Administrátorské rozhraní pro dynamické přidávání nových karet do herního balíčku a jejich ukládání na disk.
+
+2. Jednoduchý model tříd včetně jejich vazeb
+
+Aplikace využívá objektově orientovaný přístup. Hlavní řídicí logika je oddělena od datových entit karet a hráčů.
+Diagram vazeb 
+
+
+
+Fragment kódu
+
+classDiagram
+    class Program {
+        +static int m
+        +static Main(string[] args)
+        +static pridejKartu(List~Card~, string)
+        +static tah(List~PLAYER~, List~Card~, int)
+        +static michej(List~Card~)
+        +static budoucnost(List~Card~)
+        +static kocKarta(List~PLAYER~, int)
+        +static laskvst(List~PLAYER~, int)
+    }
+    class PLAYER {
+        +string jmeno
+        +List~Card~ Hand
+        +PLAYER(List~Card~, string)
+        +say()
+    }
+    class Card {
+        +int Id
+        +string Type
+    }
+
+    Program "1" --> "*" PLAYER : Spravuje hráče
+    Program "1" --> "*" Card : Spravuje herní balíček
+    PLAYER "1" --> "*" Card : Drží karty v ruce
+
+Popis vazeb
+
+    Program → PLAYER a Card: Třída Program drží hlavní kolekce List<PLAYER> (aktivní hráči) a List<Card> (aktuální balíček).
+
+    PLAYER → Card: Každá instance hráče má svou vlastní ruku (Hand), což je dynamický seznam karet (List<Card>), se kterými může během svého tahu interagovat.
+
+3. Struktura aplikace (třídy a metody)
+Třída Card
+
+Reprezentuje herní kartu.
+
+    Id (int): Unikátní identifikátor karty.
+
+    Type (string): Typ karty určující její chování.
+
+Třída PLAYER
+
+Reprezentuje entitu hráče a jeho aktuální stav.
+
+    jmeno (string): Přezdívka hráče.
+
+    Hand (List): Karty, které má hráč aktuálně na ruce.
+
+    say() (metoda): Pomocná metoda pro výpis všech karet na ruce hráče (využíváno při debugování).
+
+Třída Program
+
+Obsahuje herní smyčku a statické metody zajišťující mechaniku hry.
+Metoda	Popis funkce
+Main	Inicializuje hru, načítá JSON, registruje hráče a drží hlavní while cyklus hry, dokud nezbyde poslední vítěz.
+tah	Řídí tah konkrétního hráče. Zpracovává jeho volby, dokud nezadá příkaz "Konec" nebo nezahraje kartu ukončující tah.
+michej	Náhodně zpřehází pořadí karet v předaném listu (Fisher-Yates algoritmus).
+budoucnost	Zobrazí typy vrchních 3 karet v balíčku, aniž by je z balíčku odebrala.
+kocKarta	Kontroluje, zda má hráč 2 stejné kočičí karty. Pokud ano, umožní mu ukrást náhodnou kartu vybranému soupeři.
+laskvst	Donutí zvoleného protihráče, aby aktuálnímu hráči dobrovolně odevzdal jednu kartu dle vlastního výběru.
+kontrola_karta / kontrola_hrac	Robustní vstupy. Hlídají, aby uživatel nezadal neexistující kartu nebo jméno.
+4. Popis práce se soubory
+
+Aplikace ukládá a načítá data z externího souboru karty.json. Tento soubor slouží jako permanentní databáze všech dostupných karet. K práci se využívá knihovna System.Text.Json.
+Načítání dat 
+
+Při spuštění hry program zkontroluje existenci souboru pomocí File.Exists(). Pokud existuje, přečte se kompletní obsah jako text a deserializuje se do paměti:
+C#
+
+Pokud soubor chybí, hra vypíše chybovou hlášku a bezpečně se ukončí, čímž se předchází pádu aplikace na FileNotFoundException.
+Zápis dat 
+
+Hra obsahuje skryté administrátorské menu (při volbě počtu hráčů zadáním čísla 22). Zde se aktivuje metoda pridejKartu.
+
+    Zjistí se nejvyšší aktuální ID v balíčku a inkrementuje se o 1 (seznamKaret.Max(c => c.Id) + 1).
+
+    Nová karta se přidá do listu.
+
+    Seznam se serializuje s formátováním pro lidskou čitelnost (WriteIndented = true).
+
+    Soubor se kompletně přepíše novými daty pomocí File.WriteAllText().
+
+5. Popis ovládání
+
+Hra se kompletně ovládá přes příkazovou řádku zadáváním textových příkazů.
+Spuštění a příprava hry
+
+    Po spuštění programu budete vyzváni k zadání počtu hráčů (číslo 2 až 5).
+
+        Skrytá funkce: Zadáním čísla 22 vstoupíte do editoru karet, kde můžete zadat nový typ karty a uložit ji do JSON souboru.
+
+    Následně každý hráč zadá své jméno.
+
+    Každému hráči je automaticky přidělena 1 karta Zneskodnit a 6 náhodných karet z balíčku.
+
+Průběh tahu hráče
+
+Na začátku tahu se objeví ochranná obrazovka. Hráči by se měli vystřídat u monitoru, aby si vzájemně neviděli do karet. Po stisknutí klávesy ENTER se zobrazí karty aktuálního hráče.
+
+Hráč může psát následující příkazy (přesné názvy karet):
+
+    Michej – Zamíchá balíček karet na stole.
+
+    PohledDoBudoucnosti – Ukáže typy 3 karet na vrchu balíčku.
+
+    Utok – Ukončí tah aktuálního hráče a donutí dalšího hráče hrát 2 tahy po sobě.
+
+    Preskocit – Ukončí tah hráče bez nutnosti lízat si kartu na konci.
+
+    DejMiKartu – Spustí kartu Laskavost (výběr hráče, který vám musí dát kartu).
+
+    KocKarta – Pokud máte v ruce alespoň dvě, můžete náhodně ukrást kartu soupeři.
+
+    Konec – Ukončí vykládání karet. Hráč si automaticky dobere kartu z balíčku a tah přechází na dalšího.
